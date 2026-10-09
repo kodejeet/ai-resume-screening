@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Resume Screening & Skill Gap Analyzer</title>
+    <!-- Typography: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom Light Theme CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-shell">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-briefcase"></i>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-title">AI Resume Analyzer</span>
+                    <span class="brand-sub">Recruitment Intelligence</span>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-view="screening">
+                    <i class="fa-solid fa-user-check"></i>
+                    <span>Resume Screening</span>
+                </button>
+                <button class="nav-item" data-view="skillgap">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Skill Gap Analysis</span>
+                </button>
+                <button class="nav-item" data-view="history">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>Analysis History</span>
+                </button>
+                <button class="nav-item" data-view="about">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>About</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="api-status" id="api-status-badge">
+                    <span class="status-indicator online"></span>
+                    <span id="status-text">Gemini AI Connected</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            
+            <!-- Global Alert Banner for System Warnings -->
+            <div id="system-alert" class="alert-banner hidden">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <span id="system-alert-msg">Notification message</span>
+            </div>
+
+            <!-- VIEW 1: RESUME SCREENING -->
+            <section class="view-panel active" id="view-screening">
+                <header class="page-header">
+                    <h1 class="page-title">AI Resume Screening</h1>
+                    <p class="page-subtitle">Compare a candidate's resume with a job description and identify strengths, skill gaps, and overall fit.</p>
+                </header>
+
+                <!-- Input Form Workspace -->
+                <form id="form-analyzer" class="workspace-grid">
+                    
+                    <!-- LEFT COLUMN: Candidate Resume Input -->
+                    <div class="input-card">
+                        <div class="input-card-header">
+                            <h2><i class="fa-regular fa-file-lines"></i> Candidate Resume</h2>
+                            <div class="input-mode-toggle">
+                                <button type="button" class="toggle-btn active" id="btn-mode-file">Upload File</button>
+                                <button type="button" class="toggle-btn" id="btn-mode-text">Paste Text</button>
+                            </div>
+                        </div>
+
+                        <div class="input-card-body">
+                            <!-- Mode A: File Upload Dropzone -->
+                            <div id="wrapper-file-input" class="upload-wrapper">
+                                <div class="file-dropzone" id="dropzone">
+                                    <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
+                                    <p class="dropzone-text">Click to upload or drag & drop resume file</p>
+                                    <span class="dropzone-hint">Supports PDF, DOCX, or TXT (Max 10MB)</span>
+                                    <input type="file" id="resume-file-input" accept=".pdf,.docx,.txt">
+                                </div>
+
+                                <div id="selected-file-badge" class="file-badge hidden">
+                                    <div class="file-badge-info">
+                                        <i class="fa-solid fa-file-pdf file-icon" id="file-icon-type"></i>
+                                        <span id="file-name-text">filename.pdf</span>
+                                    </div>
+                                    <button type="button" id="btn-remove-file" class="btn-icon" title="Remove file">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Mode B: Text Area Paste -->
+                            <div id="wrapper-text-input" class="text-input-wrapper hidden">
+                                <textarea id="resume-text-input" rows="10" placeholder="Paste full candidate resume text here (experience, education, skills)..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT COLUMN: Job Description Input -->
+                    <div class="input-card">
+                        <div class="input-card-header">
+                            <h2><i class="fa-solid fa-list-check"></i> Job Description</h2>
+                            <span class="header-hint">Target Role Requirements</span>
+                        </div>
+
+                        <div class="input-card-body">
+                            <textarea id="jd-text-input" rows="11" placeholder="Paste target job description here (responsibilities, required technical skills, qualifications, experience level)..." required></textarea>
+                        </div>
+                    </div>
+
+                    <!-- BOTTOM BAR: Primary Action Button -->
+                    <div class="action-bar">
+                        <button type="submit" class="btn btn-primary" id="btn-analyze">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Analyze Resume
+                        </button>
+                    </div>
+                </form>
+
+                <!-- RESULTS PANEL -->
+                <div class="results-container hidden" id="results-panel">
+                    
+                    <!-- Loading State Spinner -->
+                    <div class="results-loader hidden" id="results-loader">
+                        <div class="spinner"></div>
+                        <p class="loader-label">Gemini AI is performing deep two-stage analysis...</p>
+                    </div>
+
+                    <!-- Results Output Display -->
+                    <div class="results-content hidden" id="results-content">
+                        
+                        <!-- Top Summary Banner -->
+                        <div class="summary-banner">
+                            <div class="score-box">
+                                <div class="score-circle" id="score-circle-val">0%</div>
+                                <div class="score-details">
+                                    <span class="score-label">Overall Match</span>
+                                    <span class="badge-decision" id="summary-decision-badge">—</span>
+                                </div>
+                            </div>
+
+                            <div class="assessment-quote">
+                                <span class="quote-title">Executive Summary</span>
+                                <p id="summary-quote-text">Evaluation summary text will appear here...</p>
+                            </div>
+                        </div>
+
+                        <!-- 1. SCORE BREAKDOWN -->
+                        <div class="report-section" id="section-score-breakdown">
+                            <h3 class="section-title"><i class="fa-solid fa-chart-simple"></i> Score Breakdown</h3>
+                            <div class="overview-grid" id="score-breakdown-grid">
+                                <!-- Rendered dynamically -->
+                            </div>
+                            <div class="score-explanation" id="score-explanation"></div>
+                        </div>
+
+                        <!-- 2. MATCH OVERVIEW GRID -->
+                        <div class="report-section">
+                            <h3 class="section-title"><i class="fa-solid fa-chart-bar"></i> Match Overview</h3>
+                            <div class="overview-grid">
+                                <div class="overview-stat-card">
+                                    <span class="stat-label">Overall Score</span>
+                                    <span class="stat-value" id="stat-score">0%</span>
+                                </div>
+                                <div class="overview-stat-card">
+                                    <span class="stat-label">Required Skills Matched</span>
+                                    <span class="stat-value" id="stat-skills-matched">—</span>
+                                </div>
+                                <div class="overview-stat-card">
+                                    <span class="stat-label">Missing Required Skills</span>
+                                    <span class="stat-value highlight-warn" id="stat-skills-missing">—</span>
+                                </div>
+                                <div class="overview-stat-card">
+                                    <span class="stat-label">Experience Alignment</span>
+                                    <span class="stat-value-text" id="stat-exp-align">—</span>
+                                </div>
+                                <div class="overview-stat-card">
+                                    <span class="stat-label">Qualification Alignment</span>
+                                    <span class="stat-value-text" id="stat-qual-align">—</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. SKILLS BREAKDOWN (Evidence-based) -->
+                        <div class="report-section">
+                            <h3 class="section-title"><i class="fa-solid fa-tags"></i> Skills Analysis</h3>
+                            
+                            <div class="skills-columns-grid">
+                                <div class="skills-block">
+                                    <h4><i class="fa-solid fa-check text-success"></i> Matched Skills</h4>
+                                    <div class="chips-container" id="chips-matched"></div>
+                                </div>
+                                <div class="skills-block">
+                                    <h4><i class="fa-solid fa-xmark text-danger"></i> Missing Skills</h4>
+                                    <div class="chips-container" id="chips-missing"></div>
+                                </div>
+                                <div class="skills-block">
+                                    <h4><i class="fa-solid fa-plus text-info"></i> Additional Skills</h4>
+                                    <div class="chips-container" id="chips-additional"></div>
+                                </div>
+                            </div>
+
+                            <!-- Partial Match Skills -->
+                            <div class="skills-block partial-block" id="partial-skills-block" style="margin-top: 12px;">
+                                <h4><i class="fa-solid fa-circle-half-stroke" style="color: var(--status-warning);"></i> Partially Matched</h4>
+                                <div class="chips-container" id="chips-partial"></div>
+                            </div>
+
+                            <!-- Transferable Skills -->
+                            <div class="skills-block transferable-block" id="transferable-skills-block" style="margin-top: 12px;">
+                                <h4><i class="fa-solid fa-arrow-right-arrow-left" style="color: var(--accent-primary);"></i> Transferable Skills</h4>
+                                <div class="chips-container" id="chips-transferable"></div>
+                            </div>
+                        </div>
+
+                        <!-- 4. EVIDENCE TABLE -->
+                        <div class="report-section" id="section-evidence">
+                            <h3 class="section-title"><i class="fa-solid fa-magnifying-glass"></i> Requirements Evidence</h3>
+                            <div class="table-wrapper">
+                                <table class="report-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 18%;">Requirement</th>
+                                            <th style="width: 10%;">Type</th>
+                                            <th style="width: 10%;">Priority</th>
+                                            <th style="width: 10%;">Status</th>
+                                            <th style="width: 26%;">Resume Evidence</th>
+                                            <th style="width: 26%;">JD Evidence</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbody-evidence"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 5. SKILL GAP ANALYSIS TABLE -->
+                        <div class="report-section">
+                            <h3 class="section-title"><i class="fa-solid fa-triangle-exclamation"></i> Skill Gap Analysis</h3>
+                            <div class="table-wrapper">
+                                <table class="report-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 14%;">Missing Skill</th>
+                                            <th style="width: 10%;">Importance</th>
+                                            <th style="width: 8%;">Gap Type</th>
+                                            <th style="width: 24%;">Why It Matters</th>
+                                            <th style="width: 22%;">Evidence Missing</th>
+                                            <th style="width: 22%;">Learning Direction</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbody-skill-gaps"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 6. EXPERIENCE ANALYSIS -->
+                        <div class="report-section">
+                            <h3 class="section-title"><i class="fa-solid fa-user-tie"></i> Experience Analysis</h3>
+                            <div class="narrative-card">
+                                <div class="card-badge" id="exp-rating-badge">—</div>
+                                <p id="exp-details-text">Experience analysis details...</p>
+                            </div>
+                            <div class="experience-entries" id="experience-entries"></div>
+                        </div>
+
+                        <!-- 7. PROJECT ANALYSIS -->
+                        <div class="report-section" id="section-projects">
+                            <h3 class="section-title"><i class="fa-solid fa-diagram-project"></i> Project Analysis</h3>
+                            <div class="project-entries" id="project-entries"></div>
+                        </div>
+
+                        <!-- 8. RESUME QUALITY -->
+                        <div class="report-section" id="section-resume-quality">
+                            <h3 class="section-title"><i class="fa-solid fa-file-circle-check"></i> Resume Quality</h3>
+                            <div class="overview-grid" id="resume-quality-grid"></div>
+                        </div>
+
+                        <!-- 9. ATS ANALYSIS -->
+                        <div class="report-section" id="section-ats">
+                            <h3 class="section-title"><i class="fa-solid fa-robot"></i> ATS Keyword Analysis</h3>
+                            <div class="ats-columns" id="ats-content"></div>
+                        </div>
+
+                        <!-- 10. STRENGTHS & CRITICAL GAPS -->
+                        <div class="report-section" id="section-strengths-gaps">
+                            <h3 class="section-title"><i class="fa-solid fa-scale-balanced"></i> Strengths & Critical Gaps</h3>
+                            <div class="strengths-gaps-grid" id="strengths-gaps-grid"></div>
+                        </div>
+
+                        <!-- 11. RESUME IMPROVEMENTS -->
+                        <div class="report-section">
+                            <h3 class="section-title"><i class="fa-solid fa-pen-to-square"></i> Resume Improvements</h3>
+                            <div class="improvements-list" id="improvements-container"></div>
+                        </div>
+
+                        <!-- 12. SCREENING RECOMMENDATION -->
+                        <div class="report-section">
+                            <h3 class="section-title"><i class="fa-solid fa-clipboard-check"></i> Final Screening Recommendation</h3>
+                            <div class="recommendation-card" id="recommendation-card-box">
+                                <div class="rec-header">
+                                    <span class="rec-label">Decision:</span>
+                                    <span class="rec-badge" id="rec-decision-title">—</span>
+                                </div>
+                                <p class="rec-text" id="rec-justification-text">Recommendation text...</p>
+                                <div class="rec-focus-areas" id="rec-focus-areas"></div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW 2: SKILL GAP ANALYSIS OVERVIEW -->
+            <section class="view-panel" id="view-skillgap">
+                <header class="page-header">
+                    <h1 class="page-title">Skill Gap Analysis Matrix</h1>
+                    <p class="page-subtitle">Detailed breakdown of candidate skill deficiencies and targeted training pathways.</p>
+                </header>
+                <div class="empty-state-card" id="skillgap-placeholder">
+                    <i class="fa-solid fa-chart-pie placeholder-icon"></i>
+                    <h3>No Analysis Loaded Yet</h3>
+                    <p>Run a resume screening on the primary tab to view candidate skill gap metrics here.</p>
+                    <button class="btn btn-secondary btn-sm" onclick="switchToScreeningView()">Go to Resume Screening</button>
+                </div>
+                <div id="skillgap-view-content" class="hidden"></div>
+            </section>
+
+            <!-- VIEW 3: ANALYSIS HISTORY -->
+            <section class="view-panel" id="view-history">
+                <header class="page-header">
+                    <h1 class="page-title">Candidate Evaluation History</h1>
+                    <p class="page-subtitle">Recent resume screenings performed during this session.</p>
+                </header>
+                <div class="table-wrapper">
+                    <table class="report-table" id="table-history">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Candidate Document</th>
+                                <th>Match Score</th>
+                                <th>Recommendation</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-history">
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--text-secondary); padding: 32px;">
+                                    No evaluations recorded yet in current session.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- VIEW 4: ABOUT -->
+            <section class="view-panel" id="view-about">
+                <header class="page-header">
+                    <h1 class="page-title">About AI Resume Screening</h1>
+                    <p class="page-subtitle">Technical overview and architecture documentation.</p>
+                </header>
+                
+                <div class="about-card">
+                    <h3>Project Purpose & System Architecture</h3>
+                    <p>This application is designed as a recruitment intelligence tool. It processes candidate resumes (PDF, DOCX, or plain text) alongside job descriptions to evaluate candidate fit using deep two-stage AI analysis.</p>
+                    
+                    <div class="about-grid">
+                        <div class="about-item">
+                            <strong><i class="fa-solid fa-layer-group"></i> Document Parsing</strong>
+                            <p>Uses <code>pypdf</code> and <code>python-docx</code> to parse uploaded files server-side into clean, plain-text streams.</p>
+                        </div>
+                        <div class="about-item">
+                            <strong><i class="fa-solid fa-brain"></i> Google Gemini AI Engine</strong>
+                            <p>Two-stage analysis: Stage 1 extracts structured JD requirements, Stage 2 evaluates the candidate with evidence-based skill matching and weighted scoring.</p>
+                        </div>
+                        <div class="about-item">
+                            <strong><i class="fa-solid fa-shield-halved"></i> Key Security</strong>
+                            <p>API keys are securely loaded from server <code>.env</code> variables and never exposed to the client browser.</p>
+                        </div>
+                        <div class="about-item">
+                            <strong><i class="fa-solid fa-code"></i> Evidence-Based Validation</strong>
+                            <p>Backend Python validates every AI conclusion against the original resume and JD text, preventing hallucinated skills or fabricated experience.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Client JS Script -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
